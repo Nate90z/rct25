@@ -1,0 +1,150 @@
+---
+title: "Comparison of Local Firms to Berlin Population"
+author: "Unathi Zwane"
+date: "2025-05-22"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+---
+```{r step5-full-summary, echo=FALSE, message=FALSE, warning=FALSE}
+
+## Table: Comparison of Total Assets and Equity Ratios (2021)
+
+# Load required packages
+library(scales)
+library(knitr)
+library(kableExtra)
+
+# Helper function to assign stars
+get_stars <- function(p) {
+  if (is.na(p)) return("")
+  if (p < 0.01) {
+    return("***")
+  } else if (p < 0.05) {
+    return("**")
+  } else if (p < 0.10) {
+    return("*")
+  } else {
+    return("")
+  }
+}
+
+# Load Orbis data
+orbis_panel_berlin <- readRDS("~/Varsity Stuff/TimeTable/2nd Semester/Corporate Transparency/ASSIGNMENT 1/rct25/data/generated/orbis_panel_berlin.rds")
+
+# Filter for 2021
+orbis_2021 <- subset(orbis_panel_berlin, year == 2021)
+
+# Create equity ratio
+orbis_2021$equity_ratio <- orbis_2021$shfd / orbis_2021$toas
+
+# Subset for postal code 10557
+pc_10557 <- subset(orbis_2021, postcode == "10557")
+all_berlin <- orbis_2021
+
+# Compute key summary stats for total assets
+mean_assets_10557 <- mean(pc_10557$toas, na.rm = TRUE)
+median_assets_10557 <- median(pc_10557$toas, na.rm = TRUE)
+sd_assets_10557 <- sd(pc_10557$toas, na.rm = TRUE)
+n_10557 <- sum(!is.na(pc_10557$toas))
+
+mean_assets_berlin <- mean(all_berlin$toas, na.rm = TRUE)
+median_assets_berlin <- median(all_berlin$toas, na.rm = TRUE)
+sd_assets_berlin <- sd(all_berlin$toas, na.rm = TRUE)
+n_berlin <- sum(!is.na(all_berlin$toas))
+
+# Compute summary stats for equity ratio
+mean_er_10557 <- mean(pc_10557$equity_ratio, na.rm = TRUE) * 100
+median_er_10557 <- median(pc_10557$equity_ratio, na.rm = TRUE) * 100
+sd_er_10557 <- sd(pc_10557$equity_ratio, na.rm = TRUE) * 100
+
+mean_er_berlin <- mean(all_berlin$equity_ratio, na.rm = TRUE) * 100
+median_er_berlin <- median(all_berlin$equity_ratio, na.rm = TRUE) * 100
+sd_er_berlin <- sd(all_berlin$equity_ratio, na.rm = TRUE) * 100
+
+# Run t-tests
+t_assets <- t.test(pc_10557$toas, all_berlin$toas)
+t_equity_ratio <- t.test(pc_10557$equity_ratio, all_berlin$equity_ratio)
+
+# Extract confidence intervals and df
+ci_assets <- paste0("(", comma(round(t_assets$conf.int[1], 2)), ", ", comma(round(t_assets$conf.int[2], 2)), ")")
+ci_equity <- paste0("(", round(t_equity_ratio$conf.int[1] * 100, 2), ", ", round(t_equity_ratio$conf.int[2] * 100, 2), ")")
+df_assets <- round(t_assets$parameter, 2)
+df_equity <- round(t_equity_ratio$parameter, 2)
+
+# Format p-values with stars
+p_value_assets <- paste0(round(t_assets$p.value, 3), get_stars(t_assets$p.value))
+p_value_equity <- paste0(round(t_equity_ratio$p.value, 3), get_stars(t_equity_ratio$p.value))
+
+# Build summary table
+summary_table <- data.frame(
+  Metric = c(
+    "Mean Total Assets (€)",
+    "Median Total Assets (€)",
+    "SD Total Assets (€)",
+    "Mean Equity Ratio (%)",
+    "Median Equity Ratio (%)",
+    "SD Equity Ratio (%)",
+    "Sample Size"
+  ),
+  `10557 Firms` = c(
+    comma(round(mean_assets_10557, 2)),
+    comma(round(median_assets_10557, 2)),
+    comma(round(sd_assets_10557, 2)),
+    round(mean_er_10557, 2),
+    round(median_er_10557, 2),
+    round(sd_er_10557, 2),
+    comma(n_10557)
+  ),
+  `All Berlin Firms` = c(
+    comma(round(mean_assets_berlin, 2)),
+    comma(round(median_assets_berlin, 2)),
+    comma(round(sd_assets_berlin, 2)),
+    round(mean_er_berlin, 2),
+    round(median_er_berlin, 2),
+    round(sd_er_berlin, 2),
+    comma(n_berlin)
+  ),
+  `p-value (t-test)` = c(
+    p_value_assets,
+    "-", "-",
+    p_value_equity,
+    "-", "-", "-"
+  ),
+  `CI (95%)` = c(
+    ci_assets,
+    "-", "-",
+    ci_equity,
+    "-", "-", "-"
+  ),
+  `df` = c(
+    df_assets,
+    "-", "-",
+    df_equity,
+    "-", "-", "-"
+  )
+)
+
+colnames(summary_table)[colnames(summary_table) == "X10557.Firms"] <- "10557.Firms"
+colnames(summary_table)[colnames(summary_table) == "CI..95.."] <- "95%.CI"
+
+# Fix column names for readability
+colnames(summary_table) <- c("Metric", "10557 Firms", "All Berlin Firms", "p-value (t-test)", "95% CI", "df")
+
+# Render table with kableExtra
+kable(summary_table, format = "latex", booktabs = TRUE, longtable = FALSE, align = "lccccc",
+      caption = "Descriptive Statistics for Total Assets and Equity Ratios (2021): 10557 Firms vs. All Berlin Firms") %>%
+  kable_styling(latex_options = c("hold_position", "striped"), font_size = 9)
+
+
+
+```
+Notes: This table presents descriptive statistics for firms located in postal code 10557 Berlin (n = 272) compared to the entire Berlin firm population (n = 28,009) for the fiscal year 2021, based on Orbis data. Total assets are reported in euros (€). The equity ratio is calculated as {Shareholders' Funds divided by Total Assets}, expressed as a percentage. Means, medians, and standard deviations (SD) are reported for each group. Welch’s two-sample t-tests were used to compare means between groups, with p-values, 95% confidence intervals (CI), and degrees of freedom (df) provided where applicable. The large standard deviation observed in equity ratios for Berlin firms reflects the presence of extreme outliers or distressed companies. All values are based on the latest available financial data for 2021. 
+
+\*, \*\*, and \*\*\* denote statistical significance at the 10%, 5%, and 1% levels, respectively.
+
+
+
+
+
+
